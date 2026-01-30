@@ -24,8 +24,9 @@ On many Linux installations, the Asus ROG Zephyrus G14 suffers from the followin
 
 As a result, lowering the system volume does not properly reduce bass output, leading to unbalanced or overly loud sound.
 <br>
-✅ What this script does
-
+<br>
+## ✅ What this script does
+<br>
 Enables ALSA soft-mixer support in WirePlumber
 
 Allows PipeWire to correctly control ALSA hardware mixers
@@ -50,10 +51,6 @@ Provides a clean install and full rollback option
 
 Officially supported and tested on:
 
-✅ Ubuntu
-
-✅ Debian
-
 ✅ Fedora
 
 ✅ Arch Linux
@@ -62,13 +59,12 @@ Officially supported and tested on:
 
 Other distributions may work but are not guaranteed.
 <br>
+
 ✨ Features
 
 Interactive install / uninstall menu
 
 Automatic ALSA device detection
-
-No manual configuration required
 
 systemd service installation
 
@@ -79,18 +75,20 @@ Execution logging to:
 /var/log/asus-g14-sound-fix.log
 <br>
 
-Safe to re-run
-
-User confirmation before making changes
 <br>
 ▶ Usage
 chmod +x asus-g14-sound-fix.sh
+<br>
+<br>
 ./asus-g14-sound-fix.sh
 
 <br>
+<br>
 Follow the on-screen menu to install or uninstall the fix.
 <br>
+<br>
 🔁 A reboot is recommended after installation.
+<br>
 <br>
 📌 Why this is needed
 
@@ -99,5 +97,6 @@ On the Asus ROG Zephyrus G14, subwoofers are controlled by separate hardware amp
 By default, Linux does not correctly bind these amplifiers to the main system volume, which results in:
 <br>
 “The volume slider moves, but the bass stays loud.”
+<br>
 <br>
 This script fixes that by synchronizing ALSA hardware controls with PipeWire volume management, making volume behavior consistent, predictable, and safe.
