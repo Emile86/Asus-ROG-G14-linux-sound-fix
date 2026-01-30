@@ -132,6 +132,8 @@ ExecStart=/bin/sleep 10
 ExecStart=/usr/bin/amixer -c 1 set Master 100%
 ExecStart=/usr/bin/amixer -c 1 set 'AMP1 Speaker' 100%
 ExecStart=/usr/bin/amixer -c 1 set 'AMP2 Speaker' 100%
+ExecStart=/usr/bin/amixer -c 1 set 'PCM' 100%
+ExecStart=/usr/bin/amixer -c 1 set 'Speaker' 100%
 
 [Install]
 WantedBy=multi-user.target
