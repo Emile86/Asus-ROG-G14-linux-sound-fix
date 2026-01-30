@@ -82,7 +82,14 @@ esac
 
 ### Detect ALSA device ###
 detect_device_name() {
-  pactl list cards short | awk '{print $2}' | grep alsa_card | head -n1
+  for card in $(pactl list cards short | awk '{print $2}' | grep alsa_card); do
+    card_index=$(pactl list cards short | grep "$card" | awk '{print $1}')
+    if amixer -c "$card_index" scontrols 2>/dev/null | grep -q "AMP1 Speaker"; then
+      echo "$card"
+      return 0
+    fi
+  done
+  return 1
 }
 
 DEVICE_NAME=$(detect_device_name)
