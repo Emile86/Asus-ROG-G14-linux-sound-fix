@@ -64,8 +64,6 @@ Other distributions may work but are not guaranteed.
 
 Interactive install / uninstall menu
 
-Automatic ALSA device detection
-
 systemd service installation
 
 Full uninstall / rollback support
