@@ -31,19 +31,23 @@ sudo -v
 
 ### Detect distro ###
 . /etc/os-release 2>/dev/null || true
-DISTRO="${ID:-unknown}"
+DISTRO="${ID,,}"
 
-SUPPORTED_DISTROS=("ubuntu" "debian" "fedora" "arch" "cachyos")
+SUPPORTED_DISTROS=("ubuntu" "debian" "arch" "cachyos")
 
 clear
-title "Asus ROG Zephyrus G14 – Linux Sound Fix"
+title "Asus ROG Zephyrus G14 2025 – Linux Sound Fix"
 
 echo "GitHub:"
 echo -e "${BOLD}$GITHUB_URL${RESET}"
 echo
 echo "Detected distro: ${BOLD}$DISTRO${RESET}"
 
-[[ " ${SUPPORTED_DISTROS[*]} " =~ " $DISTRO " ]] || warn "Distro not officially supported"
+if [[ " ${SUPPORTED_DISTROS[*]} " =~ " $DISTRO " ]]; then
+  ok "Distro supported"
+else
+  warn "Distro not officially supported"
+fi
 
 ### Menu ###
 echo
