@@ -27,12 +27,16 @@ As a result, lowering the system volume does not properly reduce bass output, le
 <br>
 ## ✅ What this script does
 <br>
+<br>
 Enables ALSA soft-mixer support in WirePlumber
-
+<br>
+<br>
 Increased volume by 20db compared to Windows
-
+<br>
+<br>
 Allows PipeWire to correctly control ALSA hardware mixers
-
+<br>
+<br>
 Forces sane hardware amplifier levels on boot:
 
 Master
@@ -46,10 +50,9 @@ Ensures subwoofer volume follows the system volume
 Normalizes sound output for better balance and clarity
 
 Provides a clean install and full rollback option
-
-🐧 Supported Linux distributions
-
-Officially supported and tested on:
+<br>
+<br>
+## Tested on:
 
 ✅ Kubuntu 25.10
 
