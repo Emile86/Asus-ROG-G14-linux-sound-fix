@@ -29,6 +29,8 @@ As a result, lowering the system volume does not properly reduce bass output, le
 <br>
 Enables ALSA soft-mixer support in WirePlumber
 
+Increased volume by 20db compared to Windows
+
 Allows PipeWire to correctly control ALSA hardware mixers
 
 Forces sane hardware amplifier levels on boot:
@@ -43,15 +45,13 @@ Ensures subwoofer volume follows the system volume
 
 Normalizes sound output for better balance and clarity
 
-Automatically detects the correct ALSA device
-
 Provides a clean install and full rollback option
 
 🐧 Supported Linux distributions
 
 Officially supported and tested on:
 
-✅ Fedora
+✅ Kubuntu 25.10
 
 ✅ Arch Linux
 
@@ -75,6 +75,7 @@ Execution logging to:
 
 <br>
 ▶ Usage
+<br>
 chmod +x asus-g14-sound-fix.sh
 <br>
 <br>
