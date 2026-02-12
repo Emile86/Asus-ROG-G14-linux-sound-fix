@@ -313,4 +313,5 @@ if command -v whiptail >/dev/null; then
     done
 else
     fallback_mode
+
 fi
