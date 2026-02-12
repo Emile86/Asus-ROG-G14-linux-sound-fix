@@ -96,9 +96,9 @@ Execution logging to:
 <br>
 
 ```sh
-chmod +x asus-g14-sound-fix.sh
+chmod +x zephyrus-sound-fix.sh
 
-./asus-g14-sound-fix.sh
+./zephyrus-sound-fix.sh
 ```
 <br>
 <br>
