@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-APP_NAME="ASUS ROG Zephyrus Sound Fix
+APP_NAME="ASUS ROG Zephyrus Sound Fix"
 VERSION="1.4"
 
 MODEL_INFO="Designed for ASUS ROG Zephyrus G14/G16 2024/2025
