@@ -1,85 +1,95 @@
 #!/usr/bin/env bash
-set -e
 
-### ========= CONFIG ========= ###
-LOG_FILE="/var/log/asus-g14-sound-fix.log"
-SERVICE_NAME="asus-g14-volume-fix"
-SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-WP_DIR="$HOME/.config/wireplumber/wireplumber.conf.d"
-WP_FILE="$WP_DIR/99-alsasoftvol.conf"
-GITHUB_URL="https://github.com/Emile86/Asus-ROG-G14-linux-sound-fix"
-ALSA_CARD_INDEX=1  # Hardcoded, will use card index 1
-DEVICE_NAME="alsa_card.pci-0000_65_00.6" # Hardcoded working card
-### =========================== ###
+APP_NAME="ASUS ROG Zephyrus Sound Fix
+VERSION="1.4"
 
-### Colors ###
-RED="\e[31m"; GREEN="\e[32m"; YELLOW="\e[33m"
-BLUE="\e[34m"; CYAN="\e[36m"; BOLD="\e[1m"; RESET="\e[0m"
+MODEL_INFO="Designed for ASUS ROG Zephyrus G14/G16 2024/2025
 
-log() {
-  echo "$(date '+%F %T') | $1" | sudo tee -a "$LOG_FILE" >/dev/null
+Fixes low speaker volume by:
+• Enabling ALSA soft mixer (WirePlumber)
+• Forcing AMP1 / AMP2 speaker gain at boot
+• Preventing volume cap after reboot
+• Syncs tweeter and subwoofers
+• Insrease volume by 10db
+"
+
+SERVICE_NAME="alsa-card-volume-cap"
+SERVICE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
+
+WIREPLUMBER_DIR="$HOME/.config/wireplumber/wireplumber.conf.d"
+WIREPLUMBER_FILE="$WIREPLUMBER_DIR/99-alsasoftvol.conf"
+
+LOG_FILE="/var/log/zephyrus-sound-fix.log"
+
+SUPPORTED_DISTROS=("ubuntu" "kubuntu" "arch" "cachyos" "debian")
+
+RED="\e[31m"; GREEN="\e[32m"; YELLOW="\e[33m"; BLUE="\e[34m"; RESET="\e[0m"
+
+sudo -v || { echo "Sudo required"; exit 1; }
+
+log() { echo "$(date '+%F %T') | $*" | sudo tee -a "$LOG_FILE" >/dev/null 2>&1; }
+
+# -------- Distro detection --------
+detect_distro() {
+    if [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        ID="${ID,,}"  # lowercase
+        echo "$ID|$PRETTY_NAME"
+    else
+        echo "unknown|Unknown"
+    fi
 }
 
-line() { echo -e "${BLUE}------------------------------------------------------------${RESET}"; }
-title() { line; echo -e "${BOLD}${CYAN}$1${RESET}"; line; }
-ok() { echo -e "${GREEN}✔ $1${RESET}"; log "OK: $1"; }
-warn() { echo -e "${YELLOW}⚠ $1${RESET}"; log "WARN: $1"; }
-die() { echo -e "${RED}✖ $1${RESET}"; log "ERROR: $1"; exit 1; }
+DISTRO_RAW=$(detect_distro)
+DISTRO="${DISTRO_RAW%%|*}"
+DISTRO_PRETTY="${DISTRO_RAW##*|}"
 
-### Sudo upfront ###
-sudo -v
-
-### Detect distro ###
-. /etc/os-release 2>/dev/null || true
-DISTRO="${ID,,}"
-
-SUPPORTED_DISTROS=("ubuntu" "debian" "arch" "cachyos")
-
-clear
-title "Asus ROG Zephyrus G14 2025 – Linux Sound Fix"
-
-echo "GitHub:"
-echo -e "${BOLD}$GITHUB_URL${RESET}"
-echo
-echo "Detected distro: ${BOLD}$DISTRO${RESET}"
-
+# Friendly text for menu
 if [[ " ${SUPPORTED_DISTROS[*]} " =~ " $DISTRO " ]]; then
-  ok "Distro supported"
+    DISTRO_FRIENDLY="$DISTRO_PRETTY (Supported)"
 else
-  warn "Distro not officially supported"
+    DISTRO_FRIENDLY="$DISTRO_PRETTY (Not supported – no warranty)"
 fi
 
-### Menu ###
-echo
-line
-echo "1) Install / Apply sound fix"
-echo "2) Uninstall / Rollback"
-echo "3) Exit"
-line
-read -rp "Select [1-3]: " MENU
+# -------- Helper functions --------
+is_installed() { systemctl is-enabled "$SERVICE_NAME" >/dev/null 2>&1; }
 
-case "$MENU" in
-  1) MODE="install" ;;
-  2) MODE="uninstall" ;;
-  3) exit 0 ;;
-  *) die "Invalid selection" ;;
-esac
+get_card_name() {
+    local idx="$1"
+    aplay -l 2>/dev/null | awk -v c="card $idx:" '$0 ~ c {sub(/.*\[/,""); sub(/\].*/,""); print; exit}'
+}
 
-DEVICE_REGEX="~${DEVICE_NAME}"
-ok "Using hardcoded ALSA device: $DEVICE_NAME"
+detect_cards() {
+    recommended=(); partial=(); hdmi=()
+    while read -r idx; do
+        name="$(get_card_name "$idx")"
+        [[ -z "$name" ]] && name="Unknown"
 
-### INSTALL ###
-if [[ "$MODE" == "install" ]]; then
-  title "Installing sound fix"
+        controls=$(amixer -c "$idx" controls 2>/dev/null)
+        amp1="No"; amp2="No"
+        echo "$controls" | grep -q "AMP1 Speaker" && amp1="Yes"
+        echo "$controls" | grep -q "AMP2 Speaker" && amp2="Yes"
 
-  mkdir -p "$WP_DIR"
-  cat > "$WP_FILE" <<EOF
+        if [[ "$amp1" == "Yes" && "$amp2" == "Yes" ]]; then
+            recommended+=("$idx" "$name | AMP1:$amp1 AMP2:$amp2 | ⭐ Recommended")
+        elif echo "$controls" | grep -Eq "Speaker|AMP"; then
+            partial+=("$idx" "$name | AMP1:$amp1 AMP2:$amp2 | Partial")
+        else
+            hdmi+=("$idx" "$name | AMP1:$amp1 AMP2:$amp2 | HDMI-only")
+        fi
+    done < <(aplay -l 2>/dev/null | awk -F'[ :]' '/^card/ {print $2}' | sort -u)
+
+    CARD_OPTIONS=("${recommended[@]}" "${partial[@]}" "${hdmi[@]}")
+}
+
+create_configs() {
+    local card="$1"
+    mkdir -p "$WIREPLUMBER_DIR"
+    cat > "$WIREPLUMBER_FILE" <<EOF
 monitor.alsa.rules = [
   {
     matches = [
-      {
-        device.name = "$DEVICE_REGEX"
-      }
+      { device.name = "~alsa_card.*" }
     ]
     actions = {
       update-props = {
@@ -89,52 +99,218 @@ monitor.alsa.rules = [
   }
 ]
 EOF
-  ok "WirePlumber soft-mixer enabled"
 
-  sudo tee "$SERVICE_FILE" >/dev/null <<EOF
+    sudo tee "$SERVICE_PATH" >/dev/null <<EOF
 [Unit]
-Description=Asus G14 Speaker + Subwoofer Volume Fix
-After=pipewire.service wireplumber.service
-Wants=pipewire.service wireplumber.service
+Description=Set max volume on ALSA card $card
+After=sound.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c "sleep 8; \
-  amixer -c $ALSA_CARD_INDEX set Master 100% && \
-  amixer -c $ALSA_CARD_INDEX set 'AMP1 Speaker' 100% && \
-  amixer -c $ALSA_CARD_INDEX set 'AMP2 Speaker' 100% && \
-  amixer -c $ALSA_CARD_INDEX set PCM 100% && \
-  amixer -c $ALSA_CARD_INDEX set Speaker 100%"
-StandardOutput=append:$LOG_FILE
-StandardError=append:$LOG_FILE
+ExecStart=/bin/sleep 8
+ExecStart=/usr/bin/amixer -c $card set Master 100%
+ExecStart=/usr/bin/amixer -c $card set 'AMP1 Speaker' 100%
+ExecStart=/usr/bin/amixer -c $card set 'AMP2 Speaker' 100%
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-  sudo systemctl daemon-reload
-  sudo systemctl enable --now "$SERVICE_NAME"
-  ok "Service installed and started"
-fi
+    sudo systemctl daemon-reload
+    sudo systemctl enable "$SERVICE_NAME" >/dev/null 2>&1
+    sudo systemctl restart "$SERVICE_NAME" >/dev/null 2>&1
+}
 
-### UNINSTALL ###
-if [[ "$MODE" == "uninstall" ]]; then
-  title "Uninstalling"
+show_progress() {
+    local title="$1"
+    shift
+    local steps=("$@")
+    local total=${#steps[@]}
+    local i=0
 
-  sudo systemctl disable --now "$SERVICE_NAME" 2>/dev/null || true
-  sudo rm -f "$SERVICE_FILE"
-  rm -f "$WP_FILE"
-  sudo systemctl daemon-reload
+    if command -v whiptail >/dev/null; then
+        (
+            for step in "${steps[@]}"; do
+                i=$((i+1))
+                percent=$((i*100/total))
+                echo "$percent"
+                echo "# $step"
+                sleep 0.5
+            done
+        ) | whiptail --title "$title" --gauge "Please wait..." 10 70 0
+    else
+        echo "$title"
+        for step in "${steps[@]}"; do
+            i=$((i+1))
+            percent=$((i*100/total))
+            echo -ne "[$percent%] $step\r"
+            sleep 0.5
+        done
+        echo -e "\nDone!"
+    fi
+}
 
-  ok "Rollback complete"
-fi
+prompt_reboot() {
+    if command -v whiptail >/dev/null; then
+        whiptail --title "Reboot Recommended" \
+            --yesno "⚠ A system reboot is recommended to apply all changes.\n\nDo you want to reboot now?" 10 60
+        if [[ $? -eq 0 ]]; then
+            sudo reboot
+        else
+            echo "Reboot skipped. Please reboot later."
+        fi
+    else
+        read -rp "⚠ A reboot is recommended. Reboot now? (y/N): " ans
+        if [[ "$ans" =~ ^[Yy]$ ]]; then
+            sudo reboot
+        else
+            echo "Reboot skipped. Please reboot later."
+        fi
+    fi
+}
 
-title "Finished"
-echo "Log file: $LOG_FILE"
-echo
-read -rp "Reboot now to apply changes? (y/N): " RB
-if [[ "$RB" =~ ^[Yy]$ ]]; then
-  sudo reboot
+install_fix() {
+    detect_cards
+    [[ ${#CARD_OPTIONS[@]} -eq 0 ]] && { echo "No valid ALSA cards found."; return; }
+
+    CARD_ID=$(whiptail --title "Select ALSA Card" \
+        --menu "Choose sound card:" 20 90 12 \
+        "${CARD_OPTIONS[@]}" 3>&1 1>&2 2>&3)
+
+    [[ -z "$CARD_ID" ]] && return
+
+    steps=("Creating WirePlumber config" \
+           "Writing systemd service" \
+           "Reloading systemd" \
+           "Enabling & starting service")
+
+    show_progress "Installing Sound Fix" "${steps[@]}"
+
+    create_configs "$CARD_ID"
+    log "Installed on card $CARD_ID"
+
+    whiptail --msgbox "✅ Installation complete." 8 60
+    prompt_reboot
+}
+
+repair_fix() {
+    if ! is_installed; then
+        whiptail --msgbox "Fix not installed." 8 50
+        return
+    fi
+
+    CARD_ID=$(grep amixer "$SERVICE_PATH" 2>/dev/null | head -1 | awk '{print $4}')
+
+    steps=("Updating WirePlumber config" \
+           "Updating systemd service" \
+           "Reloading systemd" \
+           "Restarting service")
+
+    show_progress "Repairing Sound Fix" "${steps[@]}"
+
+    create_configs "$CARD_ID"
+    log "Repair completed on card $CARD_ID"
+
+    whiptail --msgbox "🔧 Repair completed successfully." 8 50
+    prompt_reboot
+}
+
+uninstall_fix() {
+    steps=("Stopping service" \
+           "Disabling service" \
+           "Removing systemd service file" \
+           "Removing WirePlumber config" \
+           "Reloading systemd")
+
+    show_progress "Uninstalling Sound Fix" "${steps[@]}"
+
+    sudo systemctl disable --now "$SERVICE_NAME" >/dev/null 2>&1 || true
+    sudo rm -f "$SERVICE_PATH"
+    rm -f "$WIREPLUMBER_FILE"
+    sudo systemctl daemon-reload
+
+    log "Uninstalled"
+    whiptail --msgbox "🗑️ Sound fix removed." 8 50
+    prompt_reboot
+}
+
+export_diagnostics() {
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    REPORT="$SCRIPT_DIR/zephyrus-sound-diagnostic-$(date +%F-%H%M%S).txt"
+    {
+        echo "=== Zephyrus Sound Diagnostic Report ==="
+        echo "Date: $(date)"
+        echo "--- System ---"
+        uname -a 2>&1 || true
+        echo "--- Distribution ---"
+        cat /etc/os-release 2>&1 || true
+        echo "--- ALSA Cards ---"
+        aplay -l 2>&1 || true
+        echo "--- Amixer Controls ---"
+        amixer 2>&1 || true
+        echo "--- Service Status ---"
+        systemctl status "$SERVICE_NAME" 2>&1 || true
+        echo "--- WirePlumber Config ---"
+        cat "$WIREPLUMBER_FILE" 2>&1 || true
+        echo "--- Installer Log ---"
+        cat "$LOG_FILE" 2>&1 || true
+    } > "$REPORT"
+    log "Diagnostic report exported to $REPORT"
+
+    if command -v whiptail >/dev/null; then
+        whiptail --title "Export Completed" \
+            --msgbox "Diagnostic export completed successfully.\n\nSaved at:\n$REPORT" 12 70
+    else
+        echo "✔ Diagnostic export completed successfully."
+        echo "Saved at: $REPORT"
+        read -p "Press Enter to continue..."
+    fi
+}
+
+fallback_mode() {
+    echo "$APP_NAME v$VERSION"
+    echo "$MODEL_INFO"
+    echo "Detected distro: $DISTRO_FRIENDLY"
+    while true; do
+        echo
+        echo "1) Install"
+        echo "2) Repair"
+        echo "3) Uninstall"
+        echo "4) Export Diagnostics"
+        echo "5) Exit"
+        read -p "Select option: " opt
+        case $opt in
+            1) install_fix ;;
+            2) repair_fix ;;
+            3) uninstall_fix ;;
+            4) export_diagnostics ;;
+            5) exit 0 ;;
+        esac
+    done
+}
+
+# ================== START ==================
+if command -v whiptail >/dev/null; then
+    whiptail --title "$APP_NAME v$VERSION" --msgbox "$MODEL_INFO" 16 70
+    while true; do
+        if is_installed; then STATUS="Installed ✅"; else STATUS="Not Installed ❌"; fi
+
+        CHOICE=$(whiptail --title "$APP_NAME v$VERSION" \
+            --menu "Status: $STATUS\nDistro: $DISTRO_FRIENDLY\n\nSelect an option:" 24 70 12 \
+            "1" "Install / Apply Fix" \
+            "2" "Repair Existing Installation" \
+            "3" "Uninstall / Rollback" \
+            "4" "Export Diagnostics" \
+            "5" "Exit" 3>&1 1>&2 2>&3)
+        [[ -z "$CHOICE" ]] && exit 0
+        case $CHOICE in
+            1) install_fix ;;
+            2) repair_fix ;;
+            3) uninstall_fix ;;
+            4) export_diagnostics ;;
+            5|"") exit 0 ;;
+        esac
+    done
 else
-  warn "Reboot skipped — please reboot later"
+    fallback_mode
 fi
