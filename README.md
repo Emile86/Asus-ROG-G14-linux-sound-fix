@@ -1,6 +1,6 @@
-## 🔊 Asus ROG Zephyrus G14 (2025) – Linux Sound Fix
+## 🔊 Asus ROG Zephyrus G14/G16 (2024/2025) – Linux Sound Fix
 
-This repository contains a Linux sound normalization script for the Asus ROG Zephyrus G14 (2025 edition).
+This repository contains a Linux sound normalization script for the Asus ROG Zephyrus G14/16 (2024/20025 edition).
 
 The script is designed for systems using PipeWire, WirePlumber, and ALSA, and fixes several common audio issues on this laptop — including a major one where system volume controls do not affect the subwoofers.
 
@@ -8,7 +8,7 @@ The script is designed for systems using PipeWire, WirePlumber, and ALSA, and fi
 ❗ Problems this script fixes
 <br>
 <br>
-On many Linux installations, the Asus ROG Zephyrus G14 suffers from the following audio problems:
+On many Linux installations, the Asus ROG Zephyrus G14 and G16 suffers from the following audio problems:
 <br>
 <br>
 🔈 System volume slider does not control subwoofer volume
@@ -108,7 +108,7 @@ Follow the on-screen menu to install or uninstall the fix.
 <br>
 📌 Why this is needed
 
-On the Asus ROG Zephyrus G14, subwoofers are controlled by separate hardware amplifiers.
+On the Asus ROG Zephyrus G14 and G16, subwoofers are controlled by separate hardware amplifiers.
 
 By default, Linux does not correctly bind these amplifiers to the main system volume, which results in:
 <br>
