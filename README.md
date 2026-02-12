@@ -67,6 +67,8 @@ Provides a clean install and full rollback option
 
 ✅ Kubuntu 25.10
 
+✅ Ubuntu 25.10
+
 ✅ Debian
 
 ✅ Arch Linux
